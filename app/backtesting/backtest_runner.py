@@ -24,6 +24,7 @@ class BacktestRunner:
         timeframe=None,
         bars=1000,
         config=None,
+        persist=True,
     ):
 
         candles = self.loader.load(
@@ -43,7 +44,9 @@ class BacktestRunner:
         # Calculate daily liquidity levels
         # --------------------------------------------------
 
-        daily_levels = self.replay.levels.calculate(candles)
+        daily_levels = self.replay.levels.calculate(
+            candles
+        )
 
         # --------------------------------------------------
         # Process completed trades
@@ -55,66 +58,93 @@ class BacktestRunner:
                 continue
 
             # --------------------------------------------------
-            # Save trade to database
-            # --------------------------------------------------
-
-            self.repository.save_trade(
-                symbol=symbol,
-                timeframe=str(timeframe),
-                strategy="Liquidity Sweep",
-                trade=trade,
-            )
-
-            # --------------------------------------------------
-            # Determine the trading day of this trade
-            # --------------------------------------------------
-
-            previous_day_high = 0
-            previous_day_low = 0
-
-            if trade.open_time is not None:
-
-                trade_day = trade.open_time.date()
-
-                if trade_day in daily_levels:
-
-                    previous_day_high, previous_day_low = (
-                        daily_levels[trade_day]
-                    )
-
-            # --------------------------------------------------
-            # Prevent look-ahead bias
+            # Save trade and AI features only when requested.
             #
-            # Only candles available at trade entry are used.
+            # Normal backtests:
+            #     persist=True
+            #
+            # Research experiments:
+            #     persist=False
             # --------------------------------------------------
 
-            historical_candles = []
+            if persist:
 
-            if trade.open_time is not None:
+                self.repository.save_trade(
+                    symbol=symbol,
+                    timeframe=str(timeframe),
+                    strategy="Liquidity Sweep",
+                    trade=trade,
+                )
 
-                for candle in candles:
+                # --------------------------------------------------
+                # Determine the trading day of this trade
+                # --------------------------------------------------
 
-                    candle_time = datetime.fromtimestamp(
-                        candle["time"]
+                previous_day_high = 0
+                previous_day_low = 0
+
+                if trade.open_time is not None:
+
+                    trade_day = (
+                        trade.open_time.date()
                     )
 
-                    if candle_time <= trade.open_time:
-                        historical_candles.append(candle)
+                    if trade_day in daily_levels:
 
-            # --------------------------------------------------
-            # Build AI features
-            # --------------------------------------------------
+                        (
+                            previous_day_high,
+                            previous_day_low,
+                        ) = daily_levels[trade_day]
 
-            features = self.feature_extractor.extract(
-                symbol=symbol,
-                strategy="Liquidity Sweep",
-                trade=trade,
-                previous_day_high=previous_day_high,
-                previous_day_low=previous_day_low,
-                candles=historical_candles,
-            )
+                # --------------------------------------------------
+                # Prevent look-ahead bias
+                #
+                # Only candles available at trade entry
+                # are used.
+                # --------------------------------------------------
 
-            self.dataset_builder.add(features)
+                historical_candles = []
+
+                if trade.open_time is not None:
+
+                    for candle in candles:
+
+                        candle_time = (
+                            datetime.fromtimestamp(
+                                candle["time"]
+                            )
+                        )
+
+                        if (
+                            candle_time
+                            <= trade.open_time
+                        ):
+                            historical_candles.append(
+                                candle
+                            )
+
+                # --------------------------------------------------
+                # Build AI features
+                # --------------------------------------------------
+
+                features = (
+                    self.feature_extractor.extract(
+                        symbol=symbol,
+                        strategy="Liquidity Sweep",
+                        trade=trade,
+                        previous_day_high=(
+                            previous_day_high
+                        ),
+                        previous_day_low=(
+                            previous_day_low
+                        ),
+                        candles=historical_candles,
+                    )
+                )
+
+                self.dataset_builder.add(
+                    features
+                )
 
         # --------------------------------------------------
         # Performance report
@@ -130,10 +160,12 @@ class BacktestRunner:
         )
 
         # --------------------------------------------------
-        # Export AI training dataset
+        # Export AI training dataset only for normal
+        # persistent backtests.
         # --------------------------------------------------
 
-        self.dataset_builder.export_csv()
+        if persist:
+            self.dataset_builder.export_csv()
 
         return {
             "candles": len(candles),

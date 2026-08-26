@@ -9,48 +9,36 @@ class HistoryLoader:
         timeframe=mt5.TIMEFRAME_M1,
         bars=1000,
     ):
+        """
+        Load historical candle data from MetaTrader 5.
+
+        Returns:
+            MT5 rates array containing OHLCV candle data.
+        """
 
         # Initialize MT5
         if not mt5.initialize():
-            print("❌ MT5 initialization failed")
-            print("Error:", mt5.last_error())
-            return []
+            raise RuntimeError(
+                f"MT5 initialization failed: {mt5.last_error()}"
+            )
 
-        # Make sure the symbol is available
-        if not mt5.symbol_select(symbol, True):
-            print(f"❌ Cannot select symbol: {symbol}")
+        try:
+            # Load historical candles
+            rates = mt5.copy_rates_from_pos(
+                symbol,
+                timeframe,
+                0,
+                bars,
+            )
+
+            # Check whether MT5 returned data
+            if rates is None:
+                raise RuntimeError(
+                    f"Failed to load historical data: {mt5.last_error()}"
+                )
+
+            return rates
+
+        finally:
+            # Always close the MT5 connection
             mt5.shutdown()
-            return []
-
-        # Load historical candles
-        data = mt5.copy_rates_from_pos(
-            symbol,
-            timeframe,
-            0,
-            bars,
-        )
-
-        # Shut down MT5 connection
-        mt5.shutdown()
-
-        if data is None:
-            print("❌ No historical data returned")
-            return []
-
-        # Convert MT5 structured array into dictionaries
-        candles = []
-
-        for row in data:
-
-            candles.append({
-                "time": row["time"],
-                "open": float(row["open"]),
-                "high": float(row["high"]),
-                "low": float(row["low"]),
-                "close": float(row["close"]),
-                "tick_volume": int(row["tick_volume"]),
-                "spread": int(row["spread"]),
-                "real_volume": int(row["real_volume"]),
-            })
-
-        return candles

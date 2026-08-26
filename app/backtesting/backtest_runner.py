@@ -1,5 +1,7 @@
 from datetime import datetime
 
+import MetaTrader5 as mt5
+
 from app.backtesting.history_loader import HistoryLoader
 from app.backtesting.strategy_replay import StrategyReplay
 from app.backtesting.performance import PerformanceAnalyzer
@@ -21,7 +23,7 @@ class BacktestRunner:
     def run(
         self,
         symbol="XAUUSD",
-        timeframe=None,
+        timeframe=mt5.TIMEFRAME_M1,
         bars=1000,
         config=None,
         persist=True,

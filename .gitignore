@@ -1,0 +1,60 @@
+@"
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Credentials
+*login*details*
+*credentials*
+secrets/
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# ML / generated model artifacts
+*.joblib
+*.pkl
+*.pickle
+
+# Generated reports
+backtest_report.html
+
+# Generated datasets / exports
+training_dataset.csv
+trade_history.csv
+trade_excursion_analysis.csv
+rsi_divergence_trades.csv
+
+# Python distribution
+build/
+dist/
+*.egg-info/
+
+# Logs
+*.log
+logs/
+# Local repository inventories
+TraderVaultAI_ALL_FILES.txt
+"@ | Set-Content .gitignore
